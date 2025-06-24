@@ -16,7 +16,7 @@ def load_deepseek_tokenizer(model_name):
 
 
 def is_safe_to_send_to_deepseek(prompt, model_name: str = "deepseek-ai/DeepSeek-R1"):
-    TOO_LONG_FOR_DEEPSEEK = 115_000
+    TOO_LONG_FOR_DEEPSEEK = 64*1024
     tokenizer = load_deepseek_tokenizer(model_name=model_name)
 
     if type(prompt) == str:
@@ -27,23 +27,53 @@ def is_safe_to_send_to_deepseek(prompt, model_name: str = "deepseek-ai/DeepSeek-
         return len(tokenizer.apply_chat_template(prompt)) < TOO_LONG_FOR_DEEPSEEK
 
 
-def print_streaming_response(response):
+def get_streaming_response(response, is_reasoning_model: bool = False, verbose: bool = False):
+    """
+    Process streaming response from the model.
+    
+    Args:
+        response: The streaming response object
+        is_reasoning_model: Whether the model is a reasoning model
+        verbose: Whether to print output as it streams
+    
+    Returns:
+        tuple: (reasoning_content, content)
+    """
     reasoning_content = ""
     content = ""
     start_real_content = False
-    print("[Reasoning]", end="", flush=True)
+    reasoning_started = False
+    
     for chunk in response:
-        if chunk.choices[0].delta.reasoning_content:
+        # Handle reasoning content (only for reasoning models)
+        if is_reasoning_model and hasattr(chunk.choices[0].delta, 'reasoning_content') and chunk.choices[0].delta.reasoning_content:
             reasoning_chunk = chunk.choices[0].delta.reasoning_content
             reasoning_content += reasoning_chunk
-            print(f"{reasoning_chunk}", end="", flush=True)
+            if verbose:
+                if not reasoning_started:
+                    print("[Reasoning]", end="", flush=True)
+                    reasoning_started = True
+                print(f"{reasoning_chunk}", end="", flush=True)
+        
+        # Handle main content
         elif chunk.choices[0].delta.content:
             if not start_real_content:
-                print("\n[Content]", end="", flush=True)
+                if verbose:
+                    # Add newline after reasoning if we printed reasoning
+                    if reasoning_started:
+                        print("\n[Content]", end="", flush=True)
+                    else:
+                        print("[Content]", end="", flush=True)
                 start_real_content = True
             content_chunk = chunk.choices[0].delta.content
             content += content_chunk
-            print(content_chunk, end="", flush=True)
+            if verbose:
+                print(content_chunk, end="", flush=True)
+    
+    # Add final newline if we printed anything
+    if verbose and (reasoning_content or content):
+        print()
+    
     return reasoning_content, content
 
 
@@ -81,10 +111,31 @@ def do_inference(
     top_p: float = 1.0,  # nucleus sampling
     top_k: int = 50,
     max_tokens: int = 128,
-    is_reasoning_model: bool = False,
+    is_reasoning_model: bool = None,
     system_prompt: str = "You are a helpful assistant",
     stream: bool = False,
+    verbose: bool = False
 ):
+    """
+    Perform inference using the OpenAI client.
+    
+    Args:
+        client: OpenAI client instance
+        prompt: User prompt
+        model_name: Name of the model to use
+        temperature: Sampling temperature
+        top_p: Nucleus sampling parameter
+        top_k: Top-k sampling parameter (not used in OpenAI API)
+        max_tokens: Maximum tokens to generate
+        is_reasoning_model: Whether the model supports reasoning content (auto-detected if None)
+        system_prompt: System message
+        stream: Whether to stream the response
+        verbose: Whether to print output during generation
+    
+    Returns:
+        tuple: (reasoning_output, output) where reasoning_output is None for non-reasoning models
+    """
+    
     if not is_safe_to_send_to_deepseek(prompt, model_name):
         raise ValueError("Prompt is too long for DeepSeek API")
 
@@ -104,14 +155,23 @@ def do_inference(
         # See https://docs.vllm.ai/en/v0.8.3/serving/openai_compatible_server.html
     )
 
+    reasoning_output = None
+    output = None
+
     if stream:
-        reasoning_output, output = print_streaming_response(response)
-        return output
+        reasoning_output, output = get_streaming_response(response, is_reasoning_model, verbose=verbose)
     else:
-        print(
-            "[Response]",
-            response.choices[0].message.reasoning_content,
-            "\n [Content]",
-            response.choices[0].message.content,
-        )
-        return response.choices[0].message.content
+        # Handle non-streaming response
+        if is_reasoning_model and hasattr(response.choices[0].message, 'reasoning_content'):
+            reasoning_output = response.choices[0].message.reasoning_content
+        else:
+            reasoning_output = None
+            
+        output = response.choices[0].message.content
+        
+        if verbose:
+            if reasoning_output:
+                print(f"[Reasoning] {reasoning_output}")
+            print(f"[Content] {output}")
+
+    return reasoning_output, output
