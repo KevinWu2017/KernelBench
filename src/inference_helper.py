@@ -27,14 +27,14 @@ def is_safe_to_send_to_deepseek(prompt, model_name: str = "deepseek-ai/DeepSeek-
         return len(tokenizer.apply_chat_template(prompt)) < TOO_LONG_FOR_DEEPSEEK
 
 
-def get_streaming_response(response, is_reasoning_model: bool = False, verbose: bool = False):
+def get_streaming_response(response, is_reasoning_model: bool = False, print_inference_output: bool = False):
     """
     Process streaming response from the model.
     
     Args:
         response: The streaming response object
         is_reasoning_model: Whether the model is a reasoning model
-        verbose: Whether to print output as it streams
+        print_inference_output: Whether to print output as it streams
     
     Returns:
         tuple: (reasoning_content, content)
@@ -49,29 +49,29 @@ def get_streaming_response(response, is_reasoning_model: bool = False, verbose: 
         if is_reasoning_model and hasattr(chunk.choices[0].delta, 'reasoning_content') and chunk.choices[0].delta.reasoning_content:
             reasoning_chunk = chunk.choices[0].delta.reasoning_content
             reasoning_content += reasoning_chunk
-            if verbose:
+            if print_inference_output:
                 if not reasoning_started:
-                    print("[Reasoning]", end="", flush=True)
+                    print("[Reasoning] ", end="", flush=True)
                     reasoning_started = True
                 print(f"{reasoning_chunk}", end="", flush=True)
         
         # Handle main content
         elif chunk.choices[0].delta.content:
             if not start_real_content:
-                if verbose:
+                if print_inference_output:
                     # Add newline after reasoning if we printed reasoning
                     if reasoning_started:
-                        print("\n[Content]", end="", flush=True)
+                        print("\n[Content] ", end="", flush=True)
                     else:
-                        print("[Content]", end="", flush=True)
+                        print("[Content] ", end="", flush=True)
                 start_real_content = True
             content_chunk = chunk.choices[0].delta.content
             content += content_chunk
-            if verbose:
+            if print_inference_output:
                 print(content_chunk, end="", flush=True)
     
     # Add final newline if we printed anything
-    if verbose and (reasoning_content or content):
+    if print_inference_output and (reasoning_content or content):
         print()
     
     return reasoning_content, content
@@ -114,7 +114,7 @@ def do_inference(
     is_reasoning_model: bool = None,
     system_prompt: str = "You are a helpful assistant",
     stream: bool = False,
-    verbose: bool = False
+    print_inference_output: bool = False
 ):
     """
     Perform inference using the OpenAI client.
@@ -130,7 +130,7 @@ def do_inference(
         is_reasoning_model: Whether the model supports reasoning content (auto-detected if None)
         system_prompt: System message
         stream: Whether to stream the response
-        verbose: Whether to print output during generation
+        print_inference_output: Whether to print output during generation
     
     Returns:
         tuple: (reasoning_output, output) where reasoning_output is None for non-reasoning models
@@ -159,7 +159,7 @@ def do_inference(
     output = None
 
     if stream:
-        reasoning_output, output = get_streaming_response(response, is_reasoning_model, verbose=verbose)
+        reasoning_output, output = get_streaming_response(response, is_reasoning_model, print_inference_output=print_inference_output)
     else:
         # Handle non-streaming response
         if is_reasoning_model and hasattr(response.choices[0].message, 'reasoning_content'):
@@ -169,7 +169,7 @@ def do_inference(
             
         output = response.choices[0].message.content
         
-        if verbose:
+        if print_inference_output:
             if reasoning_output:
                 print(f"[Reasoning] {reasoning_output}")
             print(f"[Content] {output}")
