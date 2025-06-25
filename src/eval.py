@@ -273,7 +273,9 @@ def build_compile_cache_with_capturing(
         f.write(custom_model_src)
 
     # Execute the temporary Python file and capture output
-    process = subprocess.Popen(['python', tmp], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # NOTE: Here we use sys.executable to get the same Python interpreter that's running this script
+    
+    process = subprocess.Popen([sys.executable, tmp], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
     returncode = process.returncode
 
