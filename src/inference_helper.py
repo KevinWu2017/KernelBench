@@ -91,9 +91,11 @@ def create_inference_client(
         case "deepseek":
             url = "https://api.deepseek.com"
             key = DEEPSEEK_KEY
-        case "local-deloyed":
+        case "local-deploy":
             url = f"http://{server_address}:{server_port}/v1"
-            key = " "
+            key = "EMPTY"
+        case _:
+            raise ValueError(f"Unsupported server type: {server_type}")
     client = OpenAI(
         api_key=key,
         base_url=url,
