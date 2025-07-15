@@ -389,14 +389,21 @@ def eval_kernel_against_ref(
             print("[Eval] New Model with Custom CUDA Kernel Loaded")
     except RuntimeError as e:
         print(
-            f"Failed to load custom CUDA kernel; Compiled but not able to run, count as runtime error. \nError: {e}"
+            f"Failed to construct new model with CUDA kernel: Record as compilation failure. \nError: {e}"
         )
+        # print(
+        #     f"Failed to load custom CUDA kernel; Compiled but not able to run, count as runtime error. \nError: {e}"
+        # )
         # TODO: add metadata for runtime error e.g. error in launching kernel, illegal memory access, ...
         graceful_eval_cleanup(context, device)
-        metadata["runtime_error"] = e
+        metadata["compilation_error"] = e
+        # metadata["runtime_error"] = e
         return KernelExecResult(
-            compiled=True, correctness=False, metadata=metadata
-        )  # skip further steps
+            compiled=False, metadata=metadata
+        )
+        # return KernelExecResult(
+        #     compiled=True, correctness=False, metadata=metadata
+        # )  # skip further steps
 
     kernel_exec_result = None
 
@@ -596,6 +603,16 @@ def run_and_check_correctness(
             try:
                 output_new = model_new(*inputs)
                 torch.cuda.synchronize(device=device)
+            except Exception as e:
+                # TODO: add metadata for runtime error e.g. error in launching kernel, illegal memory access, ...
+                print(
+                    f"Encountering runtime error, compiled but not able to run. \nError: {e}"
+                )
+                metadata["runtime_error"] = e
+                return KernelExecResult(
+                    compiled=True, correctness=False, metadata=metadata
+                )
+            try:
                 if output.shape != output_new.shape:
                     metadata = register_and_format_exception(
                         "correctness_issue",
