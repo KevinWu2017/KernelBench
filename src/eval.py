@@ -156,16 +156,17 @@ def graceful_eval_cleanup(curr_context: dict, device: torch.device):
     Clean up env, gpu cache, and compiled CUDA extensions after evaluation
     """  # delete ran-specific function definitions before next eval run
     del curr_context
+    # TODO: Here we are not cleaning cuda environments, since it is run on subprocess (Also, this may cause issues with previous runtime errors).
     # Clear CUDA cache and reset GPU state
-    with torch.cuda.device(device):
-        torch.cuda.empty_cache()
-
-        # does this help?
-        torch.cuda.reset_peak_memory_stats(device=device)
-
-        torch.cuda.synchronize(
-            device=device
-        )  # Wait for all CUDA operations to complete
+    # with torch.cuda.device(device):
+    #     torch.cuda.empty_cache()
+    #
+    #     # does this help?
+    #     torch.cuda.reset_peak_memory_stats(device=device)
+    #
+    #     torch.cuda.synchronize(
+    #         device=device
+    #     )  # Wait for all CUDA operations to complete
 
     # _cleanup_cuda_extensions() # SIMON NOTE: is this necessary?
 
@@ -249,7 +250,7 @@ def build_compile_cache(
 
 
 def build_compile_cache_with_capturing(
-    custom_model_src: str,
+    custom_model_src_path: str,
     verbose: bool = False,
     build_dir: os.PathLike = None
 ) -> tuple[int, str, str]:
@@ -258,6 +259,9 @@ def build_compile_cache_with_capturing(
     Captures the return code, stdout, and stderr
     This works for capturing, build_compile_cache does not
     """
+    with open(custom_model_src_path, 'r', encoding='utf-8') as f:
+        custom_model_src = f.read()
+    
     if build_dir:
         # Add import at the start of the source code
         custom_model_src = (
@@ -473,7 +477,7 @@ def register_and_format_exception(
     metadata: dict,
     verbose: bool = False,
     truncate=False,
-    max_length=200,
+    max_length=300,
 ):
     """
     max_length characters
@@ -608,7 +612,10 @@ def run_and_check_correctness(
                 print(
                     f"Encountering runtime error, compiled but not able to run. \nError: {e}"
                 )
-                metadata["runtime_error"] = e
+                # metadata["runtime_error"] = e
+                metadata = register_and_format_exception(
+                    "runtime_error", e, metadata, truncate=True
+                )
                 return KernelExecResult(
                     compiled=True, correctness=False, metadata=metadata
                 )
