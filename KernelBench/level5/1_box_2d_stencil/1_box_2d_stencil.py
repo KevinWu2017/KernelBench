@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 class Model(nn.Module):
     """
@@ -28,19 +27,6 @@ class Model(nn.Module):
          b) Apply kernel: element-wise multiply with box filter weights
          c) Reduce: sum all values and divide by neighborhood size
          d) Store result at output[i,j]
-    
-    Example with R=2 (5x5 box):
-    ===========================
-    Original point (i,j) -> Extract 5x5 neighborhood -> Compute average
-    
-    Neighborhood pattern:
-    [p1][p2][p3][p4][p5]
-    [p6][p7][p8][p9][p10]
-    [p11][p12][(i,j)][p14][p15]  <- Center point
-    [p16][p17][p18][p19][p20]
-    [p21][p22][p23][p24][p25]
-    
-    Result: output[i,j] = (p1 + p2 + ... + p25) / 25
     """
     def __init__(self, box_size: int = 5):
         super(Model, self).__init__()
@@ -51,34 +37,6 @@ class Model(nn.Module):
         self.kernel = torch.ones(1, 1, box_size, box_size) / (box_size * box_size)
     
     def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
-        """
-        Applies 2D box stencil operation to the input tensor.
-        
-        The stencil operation consists of two main steps:
-        1. Padding: Add border pixels around the input tensor to handle boundary conditions.
-           The padding size equals the stencil radius (R=2), so we add 2 pixels on each side.
-           This ensures that every point in the original tensor has a complete neighborhood.
-        
-        2. Stencil computation: For each point (i,j) in the original tensor:
-           - Extract a (2*R+1) x (2*R+1) = 5x5 neighborhood centered at (i,j)
-           - Apply the box filter kernel (uniform weights) to compute the average
-           - Store the result at position (i,j) in the output tensor
-        
-        The stencil pattern covers a 5x5 box around each point:
-        [*][*][*][*][*]
-        [*][*][*][*][*]  
-        [*][*][P][*][*]  <- P is the center point
-        [*][*][*][*][*]
-        [*][*][*][*][*]
-
-        Args:
-            input_tensor (torch.Tensor): Input tensor of shape (height, width) for single channel.
-                                       Each element represents a data point in the 2D grid.
-
-        Returns:
-            torch.Tensor: Output tensor with same shape as input, where each point
-                         contains the average of its 5x5 box neighborhood.
-        """
         # Step 1: Implicit padding and Step 2: Stencil computation
         # torch.stencil handles both padding and neighborhood computation
         return torch.stencil(input_tensor, self.kernel, self.radius)
@@ -108,6 +66,7 @@ def get_init_inputs():
     Get initialization inputs for the model.
     
     Returns:
-        list: List containing the box size parameter
+        list: List containing the box size and box filter tensor
     """
-    return [BOX_SIZE]
+    filter_kernel = torch.ones((BOX_SIZE, BOX_SIZE), dtype=torch.float32) / (BOX_SIZE * BOX_SIZE)
+    return [BOX_SIZE, filter_kernel]
