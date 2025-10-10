@@ -15,6 +15,18 @@ def get_init_inputs():
 
     return (input_tensor, filter_kernel)
 
+def trans_to_tensor_on_device(inputs):
+    import torch
+
+    input_tensor, filter_kernel = inputs
+    input_tensor = torch.tensor(input_tensor, dtype=torch.float32).cuda().contiguous()
+    filter_kernel = torch.tensor(filter_kernel, dtype=torch.float32).cuda().contiguous()
+
+    return (input_tensor, filter_kernel)
+
+def trans_to_numpy_on_cpu(outputs):
+    return outputs.cpu().numpy()
+
 def run(inputs, algo_func):
     input_tensor, filter_kernel = inputs
     
