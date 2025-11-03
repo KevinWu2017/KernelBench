@@ -1,3 +1,5 @@
+# Problem Description and Function Definition
+# begin
 def algo(input_tensor, filter_kernel, H, W, R):
     """
     Perform a 2D box stencil operation on the input tensor.
@@ -13,3 +15,4 @@ def algo(input_tensor, filter_kernel, H, W, R):
         np.ndarray: Output tensor after applying the box stencil operation
     """
     pass
+# end

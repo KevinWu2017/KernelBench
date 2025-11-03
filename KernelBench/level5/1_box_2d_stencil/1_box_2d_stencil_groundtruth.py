@@ -47,7 +47,7 @@ class Model(nn.Module):
 # ========================================
 H = 1024  # Height of input tensor
 W = 1024  # Width of input tensor  
-R = 2     # Stencil radius - determines neighborhood size
+R = 3     # Stencil radius - determines neighborhood size
           # With R=2, each point considers a (2*2+1)x(2*2+1) = 5x5 neighborhood
           # Padding size will also be R=2 pixels on each border
 BOX_SIZE = R * 2 + 1  # Total box size: 5x5 neighborhood for averaging
