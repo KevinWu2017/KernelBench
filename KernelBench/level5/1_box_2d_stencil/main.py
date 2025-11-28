@@ -4,7 +4,7 @@ import numpy as np
 # ========================================
 H = 1024  # Height of input tensor
 W = 1024  # Width of input tensor  
-R = 3     # Stencil radius - determines neighborhood size
+R = 7     # Stencil radius - determines neighborhood size
           # With R=3, each point considers a (2*3+1)x(2*3+1) = 7x7 neighborhood
           # Padding size will also be R=3 pixels on each border
 BOX_SIZE = R * 2 + 1  # Total box size: 7x7 neighborhood for averaging

@@ -11,9 +11,6 @@
 torch::Tensor box_stencil_torch(torch::Tensor input, torch::Tensor filter_kernel, int H, int W, int radius){
     int K = radius / 2; // Assuming square kernel
 
-    // input四边都要pad radius个0
-    input = torch::nn::functional::pad(input, torch::nn::functional::PadFuncOptions({radius, radius, radius, radius}).mode(torch::kConstant).value(0));
-
     torch::Tensor output = torch::zeros({H, W}, input.options());
     box_stencil_cuda(input.data_ptr<float>(), filter_kernel.data_ptr<float>(), output.data_ptr<float>(), H, W, radius);
     return output;
